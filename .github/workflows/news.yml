@@ -1,0 +1,57 @@
+name: News Bot
+
+on:
+  workflow_dispatch:   # 手動觸發
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  run-news-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: 'pip' # ✅ 高頻執行強烈建議開啟快取
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create sources.yml from Secrets
+        run: |
+          if [ -z "${{ secrets.SOURCES_YML }}" ]; then
+            echo "❌ SOURCES_YML secret is empty!"
+            exit 1
+          fi
+          echo "${{ secrets.SOURCES_YML }}" > sources.yml
+
+      - name: Run bot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: |
+          python run_bot.py
+
+      - name: Commit pushed.json back to repo
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -f pushed.json ]; then
+            git add pushed.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Update pushed.json [skip ci]"
+              git pull --rebase origin main # ✅ 使用 rebase 模式推播最安全
+              git push origin HEAD:main
+            else
+              echo "No changes in pushed.json"
+            fi
+          fi
