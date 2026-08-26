@@ -2,8 +2,6 @@ name: News Bot
 
 on:
   workflow_dispatch:   # 手動觸發
-  schedule:
-    - cron: "0 * * * *"
 
 permissions:
   contents: write
